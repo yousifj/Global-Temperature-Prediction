@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Final Project D3 Regression Line and Line Plots</title>
+<style>
+.line {
+    stroke: #000000;
+    fill: none;
+    stroke-width: 3;
+}
+.axis path,
+.axis line {
+    fill: none;
+    stroke: black;
+    shape-rendering: crispEdges;
+}
+
+.axis text {
+    font-size: 10px;
+    font-family: sans-serif;
+}
+
+.text-label {
+    font-size: 10px;
+    font-family: sans-serif;
+}
+
+.dot {
+    stroke: #293b47;
+    fill: #A9A9A9;
+}
+</style>
+
+<p>Select A City</p>
+<label for="city-dropdown"></label><select id="city-dropdown"></select>
+<label for="conclusion"></label><p id="conclusion"></p>
+<label for="conclusion"></label><p id="conclusion1"></p>
+
+<p></p>
+
+<body>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script>
+    var margin = {
+            top: 20,
+            right: 20,
+            bottom: 30,
+            left: 40
+        },
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+    var x = d3.time.scale()
+        .range([0, width]);
+
+    var y = d3.scale.linear()
+        .range([height, 0]);
+
+    var xAxis = d3.svg.axis()
+        .scale(x)
+        .orient("bottom");
+
+    var yAxis = d3.svg.axis()
+        .scale(y)
+        .orient("left");
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    //text area
+    d3.select("body")
+        .append("p")
+        .text("Linear regress of predictions");
+
+    var svg1 = d3.select("body").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    //text area
+    d3.select("body")
+        .append("p")
+        .text("Data prediction using SARIMAX");
+
+    // Create the SVG element for comparing
+    var svg2 = d3.select("body").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    //text area
+    d3.select("body")
+        .append("p")
+        .text("Data prediction using Prophet");
+    // Create the SVG element for comparing
+    var svg3 = d3.select("body").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+    var filename = "SARIMAX 2 years data.csv"
+    //load the data for cities
+    d3.csv(filename, function(csvData) {
+
+        var nestedData = d3.nest()
+            .key(function (d) {
+                return d.City;
+            })
+            .entries(csvData);
+        var cityMap = d3.map(nestedData, function (d) {
+            return d.key;
+        });
+        var cityNames = cityMap.keys();
+
+
+        // add cities to dropdown window
+        var dropdown = d3.select("#city-dropdown");
+        dropdown.selectAll("option")
+            .data(cityNames)
+            .enter().append("option")
+            .attr("value", function (d) {
+                return d;
+            })
+            .text(function (d) {
+                return d;
+            });
+    })
+    // add event listener to bin size toggle
+    // Get the selected value when the user changes the dropdown
+    d3.select('#city-dropdown').on('change', function() {
+        var type = d3.select(this).property('value');
+        svg.selectAll("*").remove();
+        svg1.selectAll("*").remove();
+        svg2.selectAll("*").remove();
+        svg3.selectAll("*").remove();
+        updateCity(type);
+    });
+
+
+    function updateCity(City) {
+        //load the data
+        d3.csv('city_temperature_clean.csv', function (csvData) {
+            var filterdData = csvData.filter(function (d) {
+                return d.City === City;
+            });
+            csvData = filterdData
+            // initialize arrays and variables
+            const x_d = [];
+            const y_d = [];
+            const n = csvData.length;
+            let x_mean = 0;
+            let y_mean = 0;
+            let term1 = 0;
+            let term2 = 0;
+            // create x_d and y_d arrays
+            for (let i = 0; i < n; i++) {
+                y_d[i] = parseFloat(csvData[i].AvgTemperature);
+                x_d[i] = i + 1;
+                x_mean += x_d[i];
+                y_mean += y_d[i];
+            }
+            // calculate mean x and y values
+            x_mean /= n;
+            y_mean /= n;
+            // calculate slope and intercept coefficients
+            for (let i = 0; i < n; i++) {
+                const xr = x_d[i] - x_mean;
+                const yr = y_d[i] - y_mean;
+                term1 += xr * yr;
+                term2 += xr * xr;
+            }
+            // slope coefficient
+            const b1 = term1 / term2;
+            // intercept coefficient
+            const b0 = y_mean - (b1 * x_mean);
+
+            svg.append("text")
+                .attr("x", 300)
+                .attr("y", 0)
+                .text("y = " + b1.toFixed(6) + "x + " + b0.toFixed(2));
+            var conclusionEl = d3.select("#conclusion");
+            var yearlychange = b1 * 364.0
+            //conclusionEl.text()
+            conclusionEl.text("For " + City + " : The yearly change in average temperature is : " + yearlychange.toFixed(6) + " F")
+                .style("background-color", "#F0F0F0")
+                .style("color", "#333333");
+
+            // perform regression
+            yhat = [];
+            // fit line using coeffs
+            for (i = 0; i < x_d.length; i++) {
+                yhat.push(b0 + (x_d[i] * b1));
+            }
+            let data = []
+            for (i = 0; i < y_d.length; i++) {
+                data.push({
+                    "yhat": yhat[i],
+                    "y": y_d[i],
+                    "x": x_d[i]
+                })
+            }
+
+            var parseDate = d3.time.format("%Y-%m-%d").parse;
+            filterdData.forEach(function (d) {
+                //console.log("before",d.date)
+                d.date = parseDate(d.date);
+                //console.log("after",d.date)
+            });
+
+            //dynamic graph based on the data
+            data.forEach(function (d, i) {
+                d.x = +filterdData[i].date;
+                d.y = +d.y;
+                d.yhat = +d.yhat;
+            });
+
+            //console.log(data)
+
+            var line = d3.svg.line()
+                .x(function (d) {
+                    return x(d.x);
+                })
+                .y(function (d) {
+                    return y(d.yhat);
+                });
+
+            //console.log(csvData)
+            x.domain(d3.extent(filterdData, function (d) {
+                return d.date;
+            }));
+            y.domain(d3.extent(data, function (d) {
+                return d.y;
+            }));
+            //ticks for x Axis
+            xAxis.tickFormat(d3.time.format("%Y-%m"));
+            //x label
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis)
+                .append("text")
+                .attr("class", "label")
+                .attr("x", width)
+                .attr("y", -6)
+                .style("text-anchor", "end")
+                .text("Date");
+            //y label
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+                .append("text")
+                .attr("class", "label")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 6)
+                .attr("dy", ".71em")
+                .style("text-anchor", "end")
+                .text("AvgTemperature");
+            //data points
+            svg.selectAll(".dot")
+                .data(data)
+                .enter().append("circle")
+                .attr("class", "dot")
+                .attr("r", 2.5)
+                .attr("cx", function (d) {
+                    return x(d.x);
+                })
+                .attr("cy", function (d) {
+                    return y(d.y);
+                })
+                .style("opacity", 0) // set initial opacity to 0
+                // add animation using the transition() method
+                .transition()
+                .duration(1)
+                .delay(function (d, i) { // delay by index
+                    return i;
+                })
+                .style("opacity", 1); // animate opacity to 1
+            //regression line
+            svg.append("path")
+                .datum(data)
+                .attr("class", "line")
+                .attr("d", line)
+                .style("stroke-dasharray", function () { // set initial stroke-dasharray to animate stroke
+                    return this.getTotalLength() + " " + this.getTotalLength();
+                })
+                .style("stroke-dashoffset", function () { // set initial stroke-dashoffset to animate stroke
+                    return this.getTotalLength();
+                })
+                // add animation using the transition() method
+                .transition()
+                .duration(10000)
+                .delay(2000)
+                .style("stroke-dashoffset", 0) // animate stroke-dashoffset to 0
+                .each("end", ProphetResults);
+
+
+            //*****************************************//
+        })
+
+
+        function ProphetResults() {
+            //load the data
+            d3.csv('Prophet Data.csv', function (csvData) {
+                var filterdData = csvData.filter(function (d) {
+                    return d.City === City;
+                });
+                csvData = filterdData
+                // initialize arrays and variables
+                const x_d = [];
+                const y_d = [];
+                const n = csvData.length;
+                let x_mean = 0;
+                let y_mean = 0;
+                let term1 = 0;
+                let term2 = 0;
+                // create x_d and y_d arrays
+                for (let i = 0; i < n; i++) {
+                    y_d[i] = parseFloat(csvData[i].yhat);
+                    x_d[i] = i + 1;
+                    x_mean += x_d[i];
+                    y_mean += y_d[i];
+                }
+                // calculate mean x and y values
+                x_mean /= n;
+                y_mean /= n;
+                // calculate slope and intercept coefficients
+                for (let i = 0; i < n; i++) {
+                    const xr = x_d[i] - x_mean;
+                    const yr = y_d[i] - y_mean;
+                    term1 += xr * yr;
+                    term2 += xr * xr;
+                }
+                // slope coefficient
+                const b1 = term1 / term2;
+                // intercept coefficient
+                const b0 = y_mean - (b1 * x_mean);
+
+                svg1.append("text")
+                    .attr("x", 300)
+                    .attr("y", 0)
+                    .text("y = " + b1.toFixed(6) + "x + " + b0.toFixed(2));
+                var conclusionEl = d3.select("#conclusion1");
+                var yearlychange = b1 * 364.0
+                //conclusionEl.text()
+                conclusionEl.text("Using the results For " + City + " : The yearly change in average temperature is : " + yearlychange.toFixed(6) + " F")
+                    .style("background-color", "#F0F0F0")
+                    .style("color", "#333333");
+
+
+                // perform regression
+                yhat = [];
+                // fit line using coeffs
+                for (i = 0; i < x_d.length; i++) {
+                    yhat.push(b0 + (x_d[i] * b1));
+                }
+                let data = []
+                for (i = 0; i < y_d.length; i++) {
+                    data.push({
+                        "yhat": yhat[i],
+                        "y": y_d[i],
+                        "x": x_d[i]
+                    })
+                }
+
+                var parseDate = d3.time.format("%Y-%m-%d").parse;
+                filterdData.forEach(function (d) {
+                    //console.log("before",d.date)
+                    d.ds = parseDate(d.ds);
+                    //console.log("after",d.date)
+                });
+
+                //dynamic graph based on the data
+                data.forEach(function (d, i) {
+                    d.x = +filterdData[i].ds;
+                    d.y = +d.y;
+                    d.yhat = +d.yhat;
+                });
+
+                //console.log(data)
+
+                var line = d3.svg.line()
+                    .x(function (d) {
+                        return x(d.x);
+                    })
+                    .y(function (d) {
+                        return y(d.yhat);
+                    });
+
+                //console.log(csvData)
+                x.domain(d3.extent(filterdData, function (d) {
+                    return d.ds;
+                }));
+                y.domain(d3.extent(data, function (d) {
+                    return d.y;
+                }));
+                //ticks for x Axis
+                xAxis.tickFormat(d3.time.format("%Y-%m"));
+                //x label
+                svg1.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(xAxis)
+                    .append("text")
+                    .attr("class", "label")
+                    .attr("x", width)
+                    .attr("y", -6)
+                    .style("text-anchor", "end")
+                    .text("Date");
+                //y label
+                svg1.append("g")
+                    .attr("class", "y axis")
+                    .call(yAxis)
+                    .append("text")
+                    .attr("class", "label")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 6)
+                    .attr("dy", ".71em")
+                    .style("text-anchor", "end")
+                    .text("AvgTemperature");
+                //data points
+                svg1.selectAll(".dot")
+                    .data(data)
+                    .enter().append("circle")
+                    .attr("class", "dot")
+                    .attr("r", 2.5)
+                    .attr("cx", function (d) {
+                        return x(d.x);
+                    })
+                    .attr("cy", function (d) {
+                        return y(d.y);
+                    })
+                    .style("opacity", 0) // set initial opacity to 0
+                    // add animation using the transition() method
+                    .transition()
+                    .duration(1)
+                    .delay(function (d, i) { // delay by index
+                        return i;
+                    })
+                    .style("opacity", 1); // animate opacity to 1
+                //regression line
+                svg1.append("path")
+                    .datum(data)
+                    .attr("class", "line")
+                    .attr("d", line)
+                    .style("stroke-dasharray", function () { // set initial stroke-dasharray to animate stroke
+                        return this.getTotalLength() + " " + this.getTotalLength();
+                    })
+                    .style("stroke-dashoffset", function () { // set initial stroke-dashoffset to animate stroke
+                        return this.getTotalLength();
+                    })
+                    // add animation using the transition() method
+                    .transition()
+                    .duration(10000)
+                    .delay(2000)
+                    .style("stroke-dashoffset", 0) // animate stroke-dashoffset to 0
+                    .each("end",StaticGraphs);
+
+
+            })
+        }
+
+        function StaticGraphs() {
+            d3.csv('SARIMAX 2 years data.csv', function (csvData) {
+                var filterdData = csvData.filter(function (d) {
+                    return d.City === City;
+                });
+                var parseDate = d3.time.format("%Y-%m-%d").parse;
+                filterdData.forEach(function (d) {
+                    //console.log("before",d.date)
+                    d.date = parseDate(d.date);
+                    //console.log("after",d.date)
+                });
+                data = filterdData
+                // Parse the data
+                data.forEach(function (d) {
+                    d.AvgTemperature = +d.AvgTemperature;
+                    d.PredictedTemps = +d.PredictedTemps;
+                });
+                console.log("MAX")
+                console.log(data)
+
+                // Set the domain of the x and y scales
+                x.domain(d3.extent(filterdData, function (d) {
+                    return d.date;
+                }));
+                //make the intervals of y = 5
+                var yMin = d3.min(data, function(d) {
+                    if (d.AvgTemperature === 0 || d.PredictedTemps === 0) {
+                        return NaN;
+                    } else {
+                        return Math.min(d.AvgTemperature, d.PredictedTemps);
+                    }
+                });
+
+                var yMax = d3.max(data, function(d) {
+                    return Math.max(d.AvgTemperature, d.PredictedTemps);
+                });
+
+                y.domain([Math.floor(yMin/5)*5, Math.ceil(yMax/5)*5]); // round to 5
+
+                // Add the x axis to the SVG element
+                svg2.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(xAxis);
+
+                // Add the y axis to the SVG element
+                svg2.append("g")
+                    .attr("class", "y axis")
+                    .call(yAxis)
+                    .append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 6)
+                    .attr("dy", ".71em")
+                    .style("text-anchor", "end")
+                    .text("Temperature");
+
+                var line1 = d3.svg.line()
+                    // filter out null and zero values
+                    .defined(function (d) {
+                        return d.AvgTemperature != null && d.AvgTemperature !== 0;
+                    })
+                    .x(function (d) {
+                        return x(d.date);
+                    })
+                    .y(function (d) {
+                        return y(d.AvgTemperature);
+                    });
+                var line2 = d3.svg.line()
+                    .x(function (d) {
+                        return x(d.date);
+                    })
+                    .y(function (d) {
+                        return y(d.PredictedTemps);
+                    });
+                // Add the AvgTemperature line to the SVG element
+                svg2.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "steelblue")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", line1);
+
+                // Add the NewTemps line to the SVG element
+                svg2.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "red")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", line2);
+                // Create a new group element for the legend
+                const legend = svg2.append("g")
+                    .attr("class", "legend")
+                    .attr("transform", "translate(" + (width - 150) + "," + (height - 30) + ")");
+
+                // Add blue and red rectangles to the legend
+                legend.selectAll("rect")
+                    .data(["steelblue", "red"])
+                    .enter().append("rect")
+                    .attr("x", 0)
+                    .attr("y", (d, i) => i * 15)
+                    .attr("width", 10)
+                    .attr("height", 10)
+                    .style("fill", d => d);
+
+                // Add text to the legend
+                legend.selectAll("text")
+                    .data(["Actual Temperature", "Predicted Temperature"])
+                    .enter().append("text")
+                    .attr("x", 15)
+                    .attr("y", (d, i) => i * 15 + 9)
+                    .text(d => d);
+
+            })
+            //Phrohet predictions
+            d3.csv("FinalProphet 2 years Data.csv", function (csvData) {
+                var filterdData = csvData.filter(function (d) {
+                    return d.City === City;
+                });
+
+                var parseDate = d3.time.format("%Y-%m-%d").parse;
+
+                filterdData.forEach(function (d) {
+                    d.ds = parseDate(d.ds);
+                });
+
+
+                // Get the last date in the data
+                var lastDate = d3.max(filterdData, function (d) {
+                    return d.ds;
+                });
+
+                // Calculate the date 5 years before the last date
+                var fiveYearsAgo = new Date(lastDate.getFullYear() - 5, lastDate.getMonth(), lastDate.getDate());
+
+                // Filter the data to include only the last 5 years
+                data = filterdData.filter(function (d) {
+                    return d.ds >= fiveYearsAgo;
+                });
+
+
+                console.log(filterdData)
+                x.domain(d3.extent(data, function (d) {
+                    return d.ds;
+                }));
+                //ticks for x Axis
+                xAxis.tickFormat(d3.time.format("%Y-%m"));
+                // Set the domain of the x and y scales
+                var yMin = d3.min(data, function(d) {
+                    // Ignore zeros
+                    if (d.yhat_upper === 0 && d.yhat_lower === 0 && d.y === 0 && d.yhat === 0) {
+                        return NaN;
+                    } else {
+                        // Find the minimum value that is not zero
+                        return Math.min(d.yhat_upper || Infinity, d.yhat_lower || Infinity, d.y || Infinity, d.yhat || Infinity);
+                    }
+                });
+
+                var yMax = d3.max(data, function(d) {
+                        return Math.max(d.yhat_upper, d.yhat_lower, d.y, d.yhat);
+                });
+                //intervals of 5
+                y.domain([Math.floor(yMin/5)*5, Math.ceil(yMax/5)*5]);
+
+
+                // Add the x axis to the SVG element
+                svg3.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(xAxis);
+
+                // Add the y axis to the SVG element
+                svg3.append("g")
+                    .attr("class", "y axis")
+                    .call(yAxis)
+                    .append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 6)
+                    .attr("dy", ".71em")
+                    .style("text-anchor", "end")
+                    .text("Temperature");
+                //color out confidence interval
+                var area = d3.svg.area()
+                    .x(function (d) {
+                        return x(d.ds);
+                    })
+                    .y0(function (d) {
+                        return y(d.yhat_lower);
+                    })
+                    .y1(function (d) {
+                        return y(d.yhat_upper);
+                    });
+                svg3.append("path")
+                    .datum(data)
+                    .attr("class", "area")
+                    .style("fill", "gray") // set the fill color of the area
+                    .attr("d", area);
+
+                var line2 = d3.svg.line()
+                    // filter out null and empty values
+                    .defined(function (d) {
+                        return d.y != null && d.y !== '';
+                    })
+                    .x(function (d) {
+                        return x(d.ds);
+                    })
+                    .y(function (d) {
+                        return y(d.y);
+                    });
+
+
+                var line3 = d3.svg.line()
+                    .x(function (d) {
+                        return x(d.ds);
+                    })
+                    .y(function (d) {
+                        return y(d.yhat);
+                    });
+                console.log("Data before filtering:");
+                console.log(data);
+                // Add the NewTemps line to the SVG element
+                svg3.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "blue")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", line2);
+
+                // Add the NewTemps line to the SVG element
+                svg3.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "red")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", line3);
+                // Create a new group element for the legend
+                const legend = svg3.append("g")
+                    .attr("class", "legend")
+                    .attr("transform", "translate(" + (width - 150) + "," + (height - 60) + ")");
+
+                // Add blue and red rectangles to the legend
+                legend.selectAll("rect")
+                    .data(["blue", "red", "gray"])
+                    .enter().append("rect")
+                    .attr("x", 0)
+                    .attr("y", (d, i) => i * 15)
+                    .attr("width", 10)
+                    .attr("height", 10)
+                    .style("fill", d => d);
+
+                // Add text to the legend
+                legend.selectAll("text")
+                    .data(["Actual Temperature", "Predicted Temperature", "Confidence"])
+                    .enter().append("text")
+                    .attr("x", 15)
+                    .attr("y", (d, i) => i * 15 + 9)
+                    .text(d => d);
+
+
+            })
+        }
+
+
+    }
+
+    </script>
+</body>
