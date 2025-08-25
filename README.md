@@ -1,4 +1,4 @@
-Files included in this zip
+Files included in this repo
 
 		Project Report.pdf : Final report in IEEE Latex Format. 
 		
@@ -43,3 +43,5 @@ Files included in this zip
 					
 		SARIMAX 2 years data Monthly.csv: contains data predicted using SARIMAX Monthly
 					AvgTemperature is original value, and PredictedTemps it the predicted.
+
+GitHub note: Make sure to extract all ZIP files for the data. They were compressed to bypass GitHub’s 100 MB file size limit.
